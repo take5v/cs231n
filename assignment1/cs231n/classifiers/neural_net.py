@@ -37,9 +37,88 @@ class TwoLayerNet(object):
     """
     self.params = {}
     self.params['W1'] = std * np.random.randn(input_size, hidden_size)
+    # self.params['W1'] = np.zeros((input_size, hidden_size))
     self.params['b1'] = np.zeros(hidden_size)
     self.params['W2'] = std * np.random.randn(hidden_size, output_size)
+    # self.params['W2'] = np.zeros((hidden_size, output_size))
     self.params['b2'] = np.zeros(output_size)
+
+  def loss_cross_entropy(self, X, y=None, reg=0.0):
+    # Unpack variables from the params dictionary
+    W1, b1 = self.params['W1'], self.params['b1']
+    W2, b2 = self.params['W2'], self.params['b2']
+    N, D = X.shape
+
+    # Compute the forward pass
+    scores = None
+    #############################################################################
+    # TODO: Perform the forward pass, computing the class scores for the input. #
+    # Store the result in the scores variable, which should be an array of      #
+    # shape (N, C).                                                             #
+    #############################################################################
+    Y1 = np.maximum(0, X.dot(W1) + b1)
+    Y2 = Y1.dot(W2) + b2
+
+    scores = Y2
+    #############################################################################
+    #                              END OF YOUR CODE                             #
+    #############################################################################
+
+    # If the targets are not given then jump out, we're done
+    if y is None:
+      return scores
+
+    # Compute the loss
+    loss = None
+    #############################################################################
+    # TODO: Finish the forward pass, and compute the loss. This should include  #
+    # both the data loss and L2 regularization for W1 and W2. Store the result  #
+    # in the variable loss, which should be a scalar. Use the Softmax           #
+    # classifier loss.                                                          #
+    #############################################################################
+    scores -= np.max(scores, axis=1, keepdims=True)
+    exp_scores = np.exp(scores)
+    sum_exp_scores = np.sum(exp_scores, axis=1)
+    log_scores = exp_scores / sum_exp_scores[:, np.newaxis]
+
+    correct_class_scores = np.zeros_like(scores)
+    correct_class_scores[np.arange(N), y] = 1
+
+    loss = -np.sum(correct_class_scores * np.log(log_scores))
+    loss /= N
+    loss += reg * np.sum(W1 * W1)
+    loss += reg * np.sum(W2 * W2)
+    #############################################################################
+    #                              END OF YOUR CODE                             #
+    #############################################################################
+
+    # Backward pass: compute gradients
+    grads = {}
+    #############################################################################
+    # TODO: Compute the backward pass, computing the derivatives of the weights #
+    # and biases. Store the results in the grads dictionary. For example,       #
+    # grads['W1'] should store the gradient on W1, and be a matrix of same size #
+    #############################################################################
+    mat_correct_scores = np.zeros(scores.shape[::-1])  # transform matrix for correct classes
+    mat_correct_scores[y, np.arange(N)] = 1
+
+    dY2 = -mat_correct_scores.T + exp_scores / sum_exp_scores[:, np.newaxis]
+    dW2 = Y1.T.dot(dY2) / N + reg * 2 * W2
+    db2 = (-np.sum(mat_correct_scores, axis=1) + np.sum(exp_scores / sum_exp_scores[:, np.newaxis], axis=0)) / N
+
+    dY1 = dY2.dot(W2.T)
+    dY1[Y1 <= 0] = 0
+    dY1dW1 = X.T
+    dW1 = dY1dW1.dot(dY1) / N + reg * 2 * W1
+
+    db1 = np.sum(dY1, axis=0) / N
+
+    grads['W2'] = dW2
+    grads['b2'] = db2
+    grads['W1'] = dW1
+    grads['b1'] = db1
+
+    return loss, grads
 
   def loss(self, X, y=None, reg=0.0):
     """
@@ -263,7 +342,10 @@ class TwoLayerNet(object):
 
       if verbose and it % 100 == 0:
         print('iteration %d / %d: loss %f' % (it, num_iters, loss))
-
+        # print('percentage of negative W1 weights %f' % (float(np.sum(self.params['W1'] < 0)) / self.params['W1'].size))
+        # print('percentage of negative b1 weights %f' % (float(np.sum(self.params['b1'] < 0)) / self.params['b1'].size))
+        # print('percentage of negative W2 weights %f' % (float(np.sum(self.params['W2'] < 0)) / self.params['W2'].size))
+        # print('percentage of negative b2 weights %f' % (float(np.sum(self.params['b2'] < 0)) / self.params['b2'].size))
       # Every epoch, check train and val accuracy and decay learning rate.
       if it % iterations_per_epoch == 0:
         # Check accuracy
